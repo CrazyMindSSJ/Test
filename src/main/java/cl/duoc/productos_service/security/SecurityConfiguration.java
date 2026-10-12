@@ -35,6 +35,7 @@ public class SecurityConfiguration {
                                 "/api/solicitudes/disponibles",
                                 "/api/solicitudes/asignadas",
                                 "/api/solicitudes/*/aceptar",
+                                "/api/solicitudes/*/rechazar",
                                 "/api/solicitudes/*/completar").hasRole("CONDUCTOR")
                         .requestMatchers(HttpMethod.POST, "/api/solicitudes").hasAnyRole("CLIENTE", "USER")
                         .requestMatchers(HttpMethod.GET, "/api/solicitudes/mias").hasAnyRole("CLIENTE", "USER")

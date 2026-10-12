@@ -53,6 +53,11 @@ public class SolicitudController {
         return solicitudService.aceptar(id, authentication.getName());
     }
 
+    @PostMapping("/{id}/rechazar")
+    public Solicitud rechazar(@PathVariable Long id, Authentication authentication) {
+        return solicitudService.rechazar(id, authentication.getName());
+    }
+
     @PostMapping("/{id}/completar")
     public Solicitud completar(@PathVariable Long id, Authentication authentication) {
         return solicitudService.completar(id, authentication.getName());

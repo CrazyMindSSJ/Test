@@ -6,6 +6,7 @@ import cl.duoc.productos_service.model.Usuario;
 import cl.duoc.productos_service.model.UsuCliente;
 import cl.duoc.productos_service.repository.CamionRepository;
 import cl.duoc.productos_service.repository.OrdenRepository;
+import cl.duoc.productos_service.repository.RechazoSolicitudRepository;
 import cl.duoc.productos_service.repository.SolicitudRepository;
 import cl.duoc.productos_service.repository.UsuarioRepository;
 import cl.duoc.productos_service.repository.UsuClienteRepository;
@@ -30,6 +31,7 @@ public class AuthService {
     private final UsuConductorRepository conductorRepository;
     private final SolicitudRepository solicitudRepository;
     private final CamionRepository camionRepository;
+    private final RechazoSolicitudRepository rechazoRepository;
 
     public AuthService(
             UsuarioRepository usuarioRepository,
@@ -38,7 +40,8 @@ public class AuthService {
             UsuClienteRepository clienteRepository,
             UsuConductorRepository conductorRepository,
             SolicitudRepository solicitudRepository,
-            CamionRepository camionRepository) {
+            CamionRepository camionRepository,
+            RechazoSolicitudRepository rechazoRepository) {
         this.usuarioRepository = usuarioRepository;
         this.ordenRepository = ordenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -46,6 +49,7 @@ public class AuthService {
         this.conductorRepository = conductorRepository;
         this.solicitudRepository = solicitudRepository;
         this.camionRepository = camionRepository;
+        this.rechazoRepository = rechazoRepository;
     }
 
     public Optional<Usuario> autenticar(String username, String password) {
@@ -180,6 +184,7 @@ public class AuthService {
                     HttpStatus.CONFLICT, "Asigna el camión a otro conductor antes de eliminar la cuenta");
         }
         clienteRepository.deleteByUsuario_Id(usuario.getId());
+        rechazoRepository.deleteAllByConductorUsuarioId(usuario.getId());
         conductorRepository.deleteByUsuario_Id(usuario.getId());
         usuarioRepository.delete(usuario);
     }
