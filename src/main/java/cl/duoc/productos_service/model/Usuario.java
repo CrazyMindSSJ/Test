@@ -3,6 +3,8 @@ package cl.duoc.productos_service.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,6 +26,28 @@ public class Usuario {
 
     @Column(nullable = false, length = 10)
     private String rol;
+
+    @Column(nullable = false, unique = true, length = 20)
+    private String rut;
+
+    @Column(nullable = false, length = 80)
+    private String nombre;
+
+    @Column(nullable = false, length = 80)
+    private String apellido;
+
+    @Column(nullable = false)
+    private Integer edad;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private ComunaCamion comuna;
+
+    @Column(nullable = false, length = 120)
+    private String calle;
+
+    @Column(name = "num_calle", nullable = false)
+    private Integer numCalle;
 
     public Usuario() {
     }
@@ -65,5 +89,61 @@ public class Usuario {
 
     public void setRol(String rol) {
         this.rol = rol;
+    }
+
+    public String getRut() {
+        return rut;
+    }
+
+    public void setRut(String rut) {
+        this.rut = rut;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getApellido() {
+        return apellido;
+    }
+
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
+    }
+
+    public Integer getEdad() {
+        return edad;
+    }
+
+    public void setEdad(Integer edad) {
+        this.edad = edad;
+    }
+
+    public ComunaCamion getComuna() {
+        return comuna;
+    }
+
+    public void setComuna(ComunaCamion comuna) {
+        this.comuna = comuna;
+    }
+
+    public String getCalle() {
+        return calle;
+    }
+
+    public void setCalle(String calle) {
+        this.calle = calle;
+    }
+
+    public Integer getNumCalle() {
+        return numCalle;
+    }
+
+    public void setNumCalle(Integer numCalle) {
+        this.numCalle = numCalle;
     }
 }

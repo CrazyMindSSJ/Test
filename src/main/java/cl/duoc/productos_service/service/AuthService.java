@@ -1,8 +1,15 @@
 package cl.duoc.productos_service.service;
 
+import cl.duoc.productos_service.dto.RegistroRequest;
+import cl.duoc.productos_service.model.ComunaCamion;
 import cl.duoc.productos_service.model.Usuario;
+import cl.duoc.productos_service.model.UsuCliente;
+import cl.duoc.productos_service.repository.CamionRepository;
 import cl.duoc.productos_service.repository.OrdenRepository;
+import cl.duoc.productos_service.repository.SolicitudRepository;
 import cl.duoc.productos_service.repository.UsuarioRepository;
+import cl.duoc.productos_service.repository.UsuClienteRepository;
+import cl.duoc.productos_service.repository.UsuConductorRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -12,20 +19,33 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final OrdenRepository ordenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuClienteRepository clienteRepository;
+    private final UsuConductorRepository conductorRepository;
+    private final SolicitudRepository solicitudRepository;
+    private final CamionRepository camionRepository;
 
     public AuthService(
             UsuarioRepository usuarioRepository,
             OrdenRepository ordenRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            UsuClienteRepository clienteRepository,
+            UsuConductorRepository conductorRepository,
+            SolicitudRepository solicitudRepository,
+            CamionRepository camionRepository) {
         this.usuarioRepository = usuarioRepository;
         this.ordenRepository = ordenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.clienteRepository = clienteRepository;
+        this.conductorRepository = conductorRepository;
+        this.solicitudRepository = solicitudRepository;
+        this.camionRepository = camionRepository;
     }
 
     public Optional<Usuario> autenticar(String username, String password) {
@@ -46,6 +66,29 @@ public class AuthService {
     }
 
     @Transactional
+    public Usuario registrar(RegistroRequest request) {
+        String username = normalizarUsername(request.username());
+        validarNombreYClave(username, request.password());
+        String rut = normalizarRut(request.rut());
+        validarRutDisponible(rut);
+        if (usuarioRepository.existsByUsernameIgnoreCase(username)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese nombre de usuario ya está registrado");
+        }
+
+        Usuario usuario = crearEntidad(username, request.password(), "CLIENTE");
+        usuario.setRut(rut);
+        usuario.setNombre(request.nombre().trim());
+        usuario.setApellido(request.apellido().trim());
+        usuario.setEdad(request.edad());
+        usuario.setComuna(request.comuna());
+        usuario.setCalle(request.calle().trim());
+        usuario.setNumCalle(request.numCalle());
+        usuario = usuarioRepository.save(usuario);
+        clienteRepository.save(new UsuCliente(usuario));
+        return usuario;
+    }
+
+    @Transactional
     public Usuario crear(String username, String password, String rol) {
         String nombreNormalizado = normalizarUsername(username);
         validarNombreYClave(nombreNormalizado, password);
@@ -53,11 +96,19 @@ public class AuthService {
         if (usuarioRepository.existsByUsernameIgnoreCase(nombreNormalizado)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese nombre de usuario ya está registrado");
         }
-        Usuario usuario = new Usuario();
-        usuario.setUsername(nombreNormalizado);
-        usuario.setPassword(passwordEncoder.encode(password));
-        usuario.setRol(rolNormalizado);
-        return usuarioRepository.save(usuario);
+        Usuario usuario = crearEntidad(nombreNormalizado, password, rolNormalizado);
+        usuario.setRut("AUTO-" + UUID.randomUUID().toString().replace("-", "").substring(0, 15));
+        usuario.setNombre(nombreNormalizado);
+        usuario.setApellido("Usuario");
+        usuario.setEdad(18);
+        usuario.setComuna(ComunaCamion.LA_FLORIDA);
+        usuario.setCalle("Sin especificar");
+        usuario.setNumCalle(1);
+        usuario = usuarioRepository.save(usuario);
+        if ("USER".equals(rolNormalizado) || "CLIENTE".equals(rolNormalizado)) {
+            clienteRepository.save(new UsuCliente(usuario));
+        }
+        return usuario;
     }
 
     @Transactional
@@ -92,6 +143,10 @@ public class AuthService {
         }
         usuario.setUsername(nombreNuevo);
         usuario.setRol(rolNuevo);
+        if (("USER".equals(rolNuevo) || "CLIENTE".equals(rolNuevo))
+                && !clienteRepository.existsByUsuario_Id(usuario.getId())) {
+            clienteRepository.save(new UsuCliente(usuario));
+        }
         if (password != null && !password.isBlank()) {
             validarClave(password);
             usuario.setPassword(passwordEncoder.encode(password));
@@ -116,6 +171,16 @@ public class AuthService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "No se puede eliminar un usuario que tiene órdenes registradas");
         }
+        if (solicitudRepository.existsByCliente_Usuario_Id(usuario.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "No se puede eliminar un usuario que tiene solicitudes registradas");
+        }
+        if (camionRepository.existsByConductor_Usuario_Id(usuario.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Asigna el camión a otro conductor antes de eliminar la cuenta");
+        }
+        clienteRepository.deleteByUsuario_Id(usuario.getId());
+        conductorRepository.deleteByUsuario_Id(usuario.getId());
         usuarioRepository.delete(usuario);
     }
 
@@ -154,8 +219,9 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rol es obligatorio");
         }
         String normalizado = rol.trim().toUpperCase();
-        if (!normalizado.equals("USER") && !normalizado.equals("ADMIN")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rol debe ser USER o ADMIN");
+        if (!List.of("USER", "CLIENTE", "ADMIN").contains(normalizado)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El rol debe ser USER, CLIENTE o ADMIN");
         }
         return normalizado;
     }
@@ -177,6 +243,27 @@ public class AuthService {
                 || password.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "La contraseña debe tener al menos 4 caracteres y máximo 72 bytes UTF-8");
+        }
+    }
+
+    private Usuario crearEntidad(String username, String password, String rol) {
+        Usuario usuario = new Usuario();
+        usuario.setUsername(username);
+        usuario.setPassword(passwordEncoder.encode(password));
+        usuario.setRol(rol);
+        return usuario;
+    }
+
+    private String normalizarRut(String rut) {
+        if (rut == null || rut.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El RUT es obligatorio");
+        }
+        return rut.trim().toUpperCase();
+    }
+
+    private void validarRutDisponible(String rut) {
+        if (usuarioRepository.existsByRutIgnoreCase(rut)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese RUT ya está registrado");
         }
     }
 }

@@ -31,9 +31,18 @@ public class SecurityConfiguration {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-                        .requestMatchers("/api/ordenes/**").hasRole("USER")
+                        .requestMatchers(
+                                "/api/solicitudes/disponibles",
+                                "/api/solicitudes/asignadas",
+                                "/api/solicitudes/*/aceptar",
+                                "/api/solicitudes/*/completar").hasRole("CONDUCTOR")
+                        .requestMatchers(HttpMethod.POST, "/api/solicitudes").hasAnyRole("CLIENTE", "USER")
+                        .requestMatchers(HttpMethod.GET, "/api/solicitudes/mias").hasAnyRole("CLIENTE", "USER")
+                        .requestMatchers("/api/solicitudes/**").authenticated()
+                        .requestMatchers("/api/flotas/**").authenticated()
+                        .requestMatchers("/api/ordenes/**").hasAnyRole("USER", "CLIENTE")
                         .requestMatchers(HttpMethod.GET, "/api/camiones", "/api/camiones/**")
-                        .hasAnyRole("USER", "ADMIN")
+                        .hasAnyRole("USER", "CLIENTE", "CONDUCTOR", "ADMIN")
                         .requestMatchers("/api/camiones", "/api/camiones/**").hasRole("ADMIN")
                         .requestMatchers("/api/usuarios", "/api/usuarios/**").hasRole("ADMIN")
                         .anyRequest().permitAll())

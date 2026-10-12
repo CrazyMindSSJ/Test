@@ -16,6 +16,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Scanner;
 
 @Component
+@Profile("console")
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class ConsolaOrdenes implements CommandLineRunner {
     private final AuthService authService;
